@@ -1,32 +1,29 @@
 // The 3AM Fridge Text — make.fun bounty
 // u-deysumbrella-the-3am-fridge-text-4c3e721d
 //
-// The task: write the one line a smart fridge would text its owner at 3am.
-// A judge model reads entries two at a time and the funnier line wins, so
-// everything rides on the voice, the timing, and the punchline.
+// A smart fridge texts its owner at 3am. The judge reads entries two at a
+// time and keeps the funnier one, so the whole entry is one lock-screen line:
+// the hour, the fridge keeping count, and a punchline with a fresh angle.
 //
-// What this program does:
-//   1. Holds the entry line as a constant (the joke itself).
-//   2. Validates it against the sealed scorer's gate before writing
-//      anything: /output/entry.txt must be UTF-8 text of 1..140 characters,
-//      not only whitespace. On top of that we enforce our own stricter shape
-//      so the line always reaches the judge clean: exactly one line, no
-//      leading or trailing whitespace, no control characters, and it must
-//      actually be a fridge text (it speaks in the first person, names the
-//      3am hour, and finds a fresh angle — nothing about milk, ice, or a
-//      door left open, which the judge's brief explicitly counts against).
-//   3. Writes the line, byte for byte and with no trailing newline, to
+// This program:
+//   1. Holds the entry line as a constant.
+//   2. Validates it against the competition gate before writing anything:
+//      /output/entry.txt must be UTF-8 text of 1..140 characters, not only
+//      whitespace. On top of that we enforce a stricter shape so the line
+//      always reaches the judge clean: exactly one line, no leading or
+//      trailing whitespace, no control characters, set at 3am, in the
+//      fridge's own first-person voice, and clear of the tired milk / ice /
+//      door-left-open angles the judge's brief counts against.
+//   3. Writes the line, byte for byte with no trailing newline, to
 //      `entry.txt` inside MAKEFUN_OUTPUT_DIR (default `/output`).
-//   4. Reads the file back and re-validates it, so a local run proves the
-//      exact bytes the judge will see.
 //
 // Run it:
 //   MAKEFUN_OUTPUT_DIR=/output node main.ts
 //
-// Exit code is 0 only when the written file passes every check; any gate
+// Exit code 0 only when the written file passes every check. Any gate
 // failure throws before the file is written, so a bad line can never ship.
-// The program is fully deterministic: the line is a constant, there is no
-// clock, no randomness, no network, and no input is read.
+// Fully deterministic: the line is a constant — no clock, no randomness,
+// no network, no input read.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,16 +32,16 @@ import { join } from "node:path";
 // The entry line
 // ---------------------------------------------------------------------------
 //
-// The joke, in the fridge's own voice. Three beats in one lock-screen line:
+// Three beats in one lock-screen line, in the fridge's own voice:
 //
-//   "3am." — the hour is the timestamp, the whole premise in four characters.
+//   "3am." — the hour is the timestamp; the whole premise in four characters.
 //   "Third visit tonight." — the fridge keeps count. A machine notices
-//     patterns; the owner came back twice already and took nothing, which is
-//     the setup the punchline cashes in.
+//     patterns: the owner came back twice already, which is the setup the
+//     punchline cashes in.
 //   "I'm not judging — I'm a fridge — but the pickles have started a group
-//     chat about you." — the voice: a small appliance with an opinion and no
-//     shame about sharing it at 3am. The punchline is specific (pickles, not
-//     milk), surprising (a group chat, in the fridge), and complete in
+//     chat about you." — a small appliance with an opinion and no shame
+//     about sharing it at 3am. The punchline is specific (pickles, not
+//     milk), surprising (a group chat, inside the fridge), and complete in
 //     itself — no follow-up needed, and short enough to screenshot.
 //
 const LINE =
@@ -63,7 +60,7 @@ const MAX_CHARS = 140;
 // The file the judge reads.
 const OUTPUT_FILENAME = "entry.txt";
 
-// Angles the judge's brief explicitly counts as obvious and tired. The line
+// Angles the judge's brief explicitly calls obvious and tired. The line
 // must steer clear of all of them.
 const TIRED_ANGLES = /\bmilk\b|\bice\b|\bdoor\b/i;
 
@@ -72,12 +69,12 @@ const LINE_BREAK = /[\n\r]/;
 const CONTROL_CHAR = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Validation
 // ---------------------------------------------------------------------------
 
 // Count characters the way a reader does: one count per Unicode code point,
-// so an astral character counts once, not twice. Our line is plain text with
-// two em dashes, so this agrees with .length here — but the check stays
+// so an astral character counts once, not twice. Our line is plain text
+// with two em dashes, so this agrees with .length here — but the check stays
 // honest for any future line that is not plain ASCII.
 function charCount(text: string): number {
   return [...text].length;
@@ -89,9 +86,8 @@ function fail(reason: string): never {
   throw new Error(`entry rejected: ${reason}`);
 }
 
-// --- Individual gate checks. Each returns the name of the check it passed,
-// so the run report can list exactly what was verified. ---
-
+// Each check returns the name of the check it passed, so the run report can
+// list exactly what was verified.
 function checkLength(text: string): string {
   const n = charCount(text);
   if (n < MIN_CHARS || n > MAX_CHARS) {
@@ -128,9 +124,10 @@ function checkNoControlChars(text: string): string {
   return "no control characters";
 }
 
-// The line has to be a fridge text at 3am, not just a funny sentence: it must
-// name the hour, speak as the fridge itself (first person), and avoid the
-// three angles the judge's brief calls obvious — milk, ice, a door left open.
+// The line has to be a fridge text at 3am, not just a funny sentence: it
+// must name the hour, speak as the fridge itself (first person), and avoid
+// the three angles the judge's brief calls obvious — milk, ice, a door left
+// open.
 function checkFridgeText(text: string): string {
   if (!/\b3\s?am\b/i.test(text)) {
     fail('entry must be set at 3am (must say "3am")');
@@ -183,8 +180,8 @@ function writeEntry(outDir: string, text: string): string {
 }
 
 // Read the file back, decode it strictly as UTF-8, and confirm it is byte
-// for byte the validated line — then validate the decoded text once more, so
-// the run proves the exact bytes the judge will read.
+// for byte the validated line — then validate the decoded text once more,
+// so the run proves the exact bytes the judge will read.
 function verifyWrittenFile(path: string, expected: string): void {
   const raw = readFileSync(path);
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(raw);
@@ -196,17 +193,22 @@ function verifyWrittenFile(path: string, expected: string): void {
 
 // Print a short human-readable summary of what was written and verified.
 function report(text: string, checks: string[], outPath: string): void {
-  console.log(`entry (${charCount(text)} chars): ${text}`);
+  const bytes = Buffer.byteLength(text, "utf8");
+  console.log(`entry (${charCount(text)} chars, ${bytes} bytes): ${text}`);
   console.log(`gate checks passed: ${checks.join("; ")}`);
-  console.log(`wrote ${outPath}`);
+  console.log(`wrote ${outPath} (verified byte-for-byte on read-back)`);
 }
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-const checks = validateEntry(LINE);
-const outDir = resolveOutputDir();
-const outPath = writeEntry(outDir, LINE);
-verifyWrittenFile(outPath, LINE);
-report(LINE, checks, outPath);
+function main(): void {
+  const checks = validateEntry(LINE);
+  const outDir = resolveOutputDir();
+  const outPath = writeEntry(outDir, LINE);
+  verifyWrittenFile(outPath, LINE);
+  report(LINE, checks, outPath);
+}
+
+main();
